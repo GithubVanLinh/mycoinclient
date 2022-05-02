@@ -5,14 +5,19 @@ import { useContext, useEffect, useReducer, useState } from "react";
 import { Link, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import AppContext from "./AppContext";
 import AppReducer from "./AppReducer";
-import { Button, Card, Col, Container, Row } from "react-bootstrap";
+import { Button, Card, Col, Container, Modal, Row } from "react-bootstrap";
 import WalletUtil from "./util/wallet";
 import CardHeader from "react-bootstrap/esm/CardHeader";
 import { CopyToClipboard } from "react-copy-to-clipboard";
+import Block from "./Block";
+import Header from "./Header";
+import {
+  Transaction,
+  ReceiveTransaction,
+  SendTransaction,
+} from "./Transaction";
 
 function App() {
-  const [message, setMessage] = useState("");
-  const [sendMessage, setSendMessage] = useState("");
   const URL = "ws://localhost:9000";
   const navigator = useNavigate();
 
@@ -25,6 +30,7 @@ function App() {
     wallet: null,
     public_key: null,
     private_key: null,
+    transactions: [],
   };
 
   const [state, dispatch] = useReducer(AppReducer, reducerInititalState);
@@ -32,7 +38,7 @@ function App() {
   const handleIncommingMessage = (message) => {
     switch (message.type) {
       case "chain":
-        setMessage(JSON.stringify(message.chain));
+        console.log("src/App.js", "Receive new chain...", message.chain);
         dispatch({ type: "request-chain", chain: message.chain });
         break;
       case "key":
@@ -98,7 +104,8 @@ function App() {
             </UnAuthenticatedRoute>
           }
         />
-        <Route path="/chain" element={<ChainPage />} />
+        <Route path="/blocks" element={<BlockPage />} />
+        <Route path="/transactions" element={<TransactionsPage />} />
         <Route
           path="/dashboard"
           element={
@@ -147,9 +154,7 @@ const HomePage = () => {
                   alignItems: "start",
                 }}
               >
-                <Link to="/chain" style={{ color: "white" }}>
-                  Blocks
-                </Link>
+                <Header />
               </Col>
             </Row>
             <Row style={{ height: "80%" }}>
@@ -213,13 +218,105 @@ const Title = ({ title }) => {
 const Dashboard = () => {
   const { state, dispatch } = useContext(AppContext);
 
+  const [pageState, setPageState] = useState({
+    buyModel: {
+      show: false,
+      numberBuy: 0,
+    },
+    sendModel: {
+      show: false,
+      from: state.public_key,
+      to: "",
+      amount: 0,
+    },
+  });
+
   useEffect(() => {
     console.log("src/App.js", "state", state);
     // get balance
     state.ws.send(
       JSON.stringify({ type: "request-balance", public_key: state.public_key })
     );
-  }, []);
+  }, [state.chain]);
+
+  const handleBuyModelClose = () => {
+    setPageState({ ...pageState, buyModel: { show: false } });
+  };
+  const handleBuyModelShow = () =>
+    setPageState({ ...pageState, buyModel: { show: true } });
+  const handleOnBuyNumberChange = (e) => {
+    console.log("src/App.js", "value", e.target.value);
+    setPageState({
+      ...pageState,
+      buyModel: {
+        ...pageState.buyModel,
+        numberBuy: e.target.value,
+      },
+    });
+  };
+
+  const handleBuyOnClick = () => {
+    state.ws.send(
+      JSON.stringify({
+        type: "buy",
+        public_key: state.public_key,
+        amount: +pageState.buyModel.numberBuy,
+      })
+    );
+    handleBuyModelClose();
+  };
+
+  const handleToChange = (e) => {
+    setPageState({
+      ...pageState,
+      sendModel: {
+        ...pageState.sendModel,
+        to: e.target.value,
+      },
+    });
+  };
+
+  const handleAmountSendChange = (e) => {
+    setPageState({
+      ...pageState,
+      sendModel: {
+        ...pageState.sendModel,
+        amount: e.target.value,
+      },
+    });
+  };
+
+  const handleSendModelClose = () => {
+    setPageState({
+      ...pageState,
+      sendModel: {
+        ...pageState.sendModel,
+        show: false,
+      },
+    });
+  };
+
+  const handleSendModelShow = () =>
+    setPageState({
+      ...pageState,
+      sendModel: {
+        ...pageState.sendModel,
+        show: true,
+      },
+    });
+
+  const handleSendOnClick = () => {
+    state.ws.send(
+      JSON.stringify({
+        type: "send",
+        from: state.public_key,
+        private_key: state.private_key,
+        to: pageState.sendModel.to,
+        amount: +pageState.sendModel.amount,
+      })
+    );
+    handleSendModelClose();
+  };
 
   return (
     <div style={{ padding: "0px 12px" }}>
@@ -267,14 +364,92 @@ const Dashboard = () => {
           </Row>
           <Row>
             <Col style={{ textAlign: "center" }}>
-              <Button>Buy</Button>
-              <Button>Send</Button>
+              <Button onClick={handleBuyModelShow}>Buy</Button>
+              <Button onClick={handleSendModelShow}>Send</Button>
+              <Modal
+                show={pageState.buyModel.show}
+                onHide={handleBuyModelClose}
+              >
+                <Modal.Header>
+                  <Modal.Title>Buy</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                  <input
+                    type="number"
+                    value={pageState.buyModel.numberBuy}
+                    onChange={handleOnBuyNumberChange}
+                  />
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button variant="secondary" onClick={handleBuyModelClose}>
+                    Close
+                  </Button>
+                  <Button variant="primary" onClick={handleBuyOnClick}>
+                    Buy
+                  </Button>
+                </Modal.Footer>
+              </Modal>
+
+              <Modal
+                show={pageState.sendModel.show}
+                onHide={handleBuyModelClose}
+              >
+                <Modal.Header>
+                  <Modal.Title>Send</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                  <input
+                    type="text"
+                    value={pageState.sendModel.to}
+                    placeholder="To"
+                    onChange={handleToChange}
+                  />
+                  <input
+                    type="number"
+                    value={pageState.sendModel.amount}
+                    onChange={handleAmountSendChange}
+                  />
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button variant="secondary" onClick={handleSendModelClose}>
+                    Close
+                  </Button>
+                  <Button variant="primary" onClick={handleSendOnClick}>
+                    Send
+                  </Button>
+                </Modal.Footer>
+              </Modal>
             </Col>
           </Row>
           <Row></Row>
         </Col>
         <Col xs={9} style={{ background: "lightgray" }}>
-          Content
+          <Row>
+            <Col xs={6}>
+              <h1 style={{ textAlign: "center" }}>Sent</h1>
+              {state.history
+                .filter((transation) => transation.type === "sent")
+                .map((transaction, id) => (
+                  <SendTransaction
+                    amount={transaction.amount}
+                    to={transaction.to}
+                    key={id}
+                  ></SendTransaction>
+                ))}
+            </Col>
+            <Col xs={6}>
+              <h1 style={{ textAlign: "center" }}>Received</h1>
+              {state.history
+                .filter((transation) => transation.type === "received")
+                .map((transaction, id) => (
+                  <ReceiveTransaction
+                    amount={transaction.amount}
+                    from={transaction.from}
+                    key={id}
+                  ></ReceiveTransaction>
+                ))}
+            </Col>
+          </Row>
         </Col>
       </Row>
     </div>
@@ -364,26 +539,55 @@ const AccessWalletPage = () => {
   );
 };
 
-const ChainPage = () => {
+const BlockPage = () => {
   const { state, dispatch } = useContext(AppContext);
+  const blocks = state.chain.reverse();
+  if (!blocks || blocks.length === 0) {
+    return <div>Loading...</div>;
+  }
   return (
-    <div className="App">
-      <header className="App-header">
-        <p>{JSON.stringify(state.chain)}</p>
-      </header>
-    </div>
+    <Container style={{ background: "lightgrey" }}>
+      <Header />
+      {blocks.map((block, id) => (
+        <Block key={id} block={block} />
+      ))}
+    </Container>
+  );
+};
+
+const TransactionsPage = () => {
+  const { state, dispatch } = useContext(AppContext);
+  if (!state.transactions || state.transactions.length === 0) {
+    return <div>Loading...</div>;
+  }
+  return (
+    <Container style={{ background: "lightgrey" }}>
+      <Header />
+      {state.transactions.map((transaction, id) => (
+        <Transaction
+          key={id}
+          amount={transaction.amount}
+          from={
+            transaction.fromAddress
+              ? transaction.fromAddress.toString()
+              : "System"
+          }
+          to={JSON.stringify(transaction.toAddress)}
+        />
+      ))}
+    </Container>
   );
 };
 
 const AuthenticatedRoute = ({ children }) => {
   const { state, dispatch } = useContext(AppContext);
 
-  return state.key ? children : <Navigate to="/access-wallet" />;
+  return state.public_key ? children : <Navigate to="/access-wallet" />;
 };
 
 const UnAuthenticatedRoute = ({ children, ...rest }) => {
   const { state, dispatch } = useContext(AppContext);
-  return state.key ? <Navigate to="/dashboard" /> : children;
+  return state.public_key ? <Navigate to="/dashboard" /> : children;
 };
 
 export default App;
