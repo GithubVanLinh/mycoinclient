@@ -1,6 +1,38 @@
 // app reducer
 const AppReducer = (state, action) => {
   switch (action.type) {
+    case "set_balance":
+      return {
+        ...state,
+        balance: action.balance,
+      };
+    case "set_public_key":
+      return {
+        ...state,
+        public_key: action.public_key,
+      };
+    case "set_private_key":
+      return {
+        ...state,
+        private_key: action.private_key,
+      };
+    case "set_key":
+      return {
+        ...state,
+        key: action.key,
+      };
+    case "set_keys":
+      return {
+        ...state,
+        key: action.key,
+        public_key: action.public_key,
+        private_key: action.private_key,
+      };
+    case "set_wallet":
+      return {
+        ...state,
+        wallet: action.wallet,
+      };
     case "set_ws":
       return {
         ...state,
@@ -20,21 +52,6 @@ const AppReducer = (state, action) => {
       return {
         ...state,
         message: action.message,
-      };
-    case "SET_KEY":
-      return {
-        ...state,
-        key: action.key,
-      };
-    case "SET_MESSAGE":
-      return {
-        ...state,
-        message: action.message,
-      };
-    case "SET_SEND_MESSAGE":
-      return {
-        ...state,
-        sendMessage: action.sendMessage,
       };
     default:
       return state;
